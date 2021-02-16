@@ -8,8 +8,8 @@ import gpxpy
 import gpxpy.gpx
 
 MAX_POINTS = 100
-GUIDING_POINTS = 10
-MAX_ALLOWED_DISTANCE = 290
+GUIDING_POINTS = 3
+MAX_DIST_BETWEEN_POINTS = 290
 
 STRIP_MODE = 'strip'
 SNAP_TO_ROAD_MODE = 'snap_to_road'
@@ -21,9 +21,8 @@ SNAPPED_DIR_SUFFIX = "_snapped"
 def strip(gpx):
     del gpx.waypoints[:]
     del gpx.routes[:]
-    return gpx
 
-# Interpolates between points where the distance is > MAX_ALLOWED_DISTANCE
+# Interpolates between points where the distance is > MAX_DIST_BETWEEN_POINTS
 def interpolate(points):
     geoid = Geod(ellps="WGS84")
     new_points = []
@@ -33,9 +32,8 @@ def interpolate(points):
         else:
             prev_lat, prev_lon = new_points[-1]
             dist = gpxpy.geo.haversine_distance(lat, lon, prev_lat, prev_lon)
-            if dist >= MAX_ALLOWED_DISTANCE:
-                extra_points = geoid.npts(prev_lon, prev_lat, lon, lat, dist / MAX_ALLOWED_DISTANCE)
-                print 'extra points = ', extra_points
+            if dist >= MAX_DIST_BETWEEN_POINTS:
+                extra_points = geoid.npts(prev_lon, prev_lat, lon, lat, dist / MAX_DIST_BETWEEN_POINTS)
                 # Reverse order
                 for new_lon, new_lat in extra_points:
                     new_points.append((new_lat, new_lon))
@@ -61,33 +59,48 @@ def snap_to_road(gpx):
                 snapped_points += [(p['location']['latitude'], p['location']['longitude']) for p in result]
 
             segment.points = [gpxpy.gpx.GPXTrackPoint(latitude, longitude) for latitude, longitude in snapped_points]
-    return gpx
 
-def process_files(input_dir, output_dir, func):
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    os.mkdir(output_dir)
-    for file_name in os.listdir(input_dir):
-        with open(os.path.join(input_dir, file_name), 'r') as f_in:
-            gpx = gpxpy.parse(f_in)
-            result = func(gpx)
-            with open(os.path.join(output_dir, file_name), 'w') as f_out:
-                f_out.write(result.to_xml())
+
+def update_master_gpx(master_gpx, new_gpxs):
+    for gpx in new_gpxs:
+        strip(gpx)
+        snap_to_road(gpx)
+
+    master_track = master_gpx.tracks[0]
+    for gpx in new_gpxs:
+        for track in gpx.tracks:
+            master_track.segments += track.segments
+
+
+def read_gpx(file_name):
+    with open(file_name, 'r') as f:
+        return gpxpy.parse(f)
+
+
+def read_gpxs(dir_name):
+    gpxs = []
+    for file_name in os.listdir(dir_name):
+        gpxs.append(read_gpx(os.path.join(dir_name, file_name)))
+    return gpxs
+
+
+def write_gpx(file_name, gpx):
+    with open(file_name, 'w') as f:
+        f.write(gpx.to_xml())
+
 
 def main():
-    parser = argparse.ArgumentParser(description='Process a directory of GPX files.')
+    parser = argparse.ArgumentParser(description='Process a directory of GPX files and appends them to the master file.')
+    parser.add_argument("master_gpx", help='Master file')
     parser.add_argument("input_dir", help='Input directory')
-    parser.add_argument("mode", choices=[STRIP_MODE, SNAP_TO_ROAD_MODE, STRIP_AND_SNAP])
     args = parser.parse_args()
 
-    if args.mode == STRIP_MODE or args.mode == STRIP_AND_SNAP:
-        process_files(args.input_dir, args.input_dir + STRIPPED_DIR_SUFFIX, strip)
+    master_gpx = read_gpx(args.master_gpx)
+    new_gpxs = read_gpxs(args.input_dir)
 
-    if args.mode == SNAP_TO_ROAD_MODE or args.mode == STRIP_AND_SNAP:
-        input_dir = args.input_dir
-        if args.mode == STRIP_AND_SNAP:
-            input_dir += STRIPPED_DIR_SUFFIX
-        process_files(input_dir, args.input_dir + SNAPPED_DIR_SUFFIX, snap_to_road)
+    update_master_gpx(master_gpx, new_gpxs)
+
+    write_gpx(args.master_gpx, master_gpx)
 
 if __name__ == "__main__":
     main()
