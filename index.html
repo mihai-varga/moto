@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My motorcycle rides</title>
+    <script src="master_coordinates.js"></script>
+    <style type="text/css">
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+
+      /* Optional: Makes the sample page fill the window. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+    <script>
+      function paintLine(map, path, color, opacity, weight) {
+        const line = new google.maps.Polyline({
+              path: path,
+              geodesic: true,
+              strokeColor: color,
+              strokeOpacity: opacity,
+              strokeWeight: weight,
+            });
+        line.setMap(map);
+      }
+
+      function initMap() {
+        const map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 9,
+          center: { lat: 46.88, lng: 8.78 },
+          mapTypeId: "terrain",
+        });
+        masterCoordinates.forEach(path => paintLine(map, path, '#FF0000', /*opacity=*/0.7, /*weight=*/3));
+      }
+    </script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <!-- Key limited to my github page. Don't try. -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFZGZhbG3XrIKYBxSso3o8gqLNdGbzcsM&callback=initMap&libraries=&v=weekly"
+      async
+    ></script>
+  </body>
+</html>
