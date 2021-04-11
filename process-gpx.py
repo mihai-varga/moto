@@ -53,7 +53,7 @@ def snap_to_road(gpx):
             points = [(point.latitude, point.longitude) for point in segment.points]
             points = interpolate(points)
             segment_len = MAX_POINTS - GUIDING_POINTS
-            segmented_paths = [points[i:i+segment_len] for i in xrange(0, len(points), segment_len)]
+            segmented_paths = [points[i:i+segment_len] for i in range(0, len(points), segment_len)]
 
             snapped_points = []
             for path in segmented_paths:
